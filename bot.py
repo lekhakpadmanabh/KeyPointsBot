@@ -10,36 +10,6 @@ import sqlite3 as lite
 from time import sleep 
 import praw
 
-conn = lite.connect("bot.db")
-cursor = conn.cursor()
-cursor.execute('''CREATE TABLE IF NOT EXISTS botlog(id INTEGER PRIMARY KEY, 
-                  reddit_id TEXT unique, toi_url TEXT,
-                  imgur_url TEXT)
-               ''')
-def add_record(reddit_id, toi_url, imgur_url):
-    """Insert id and urls into db"""
-
-    try:
-        cursor.execute("INSERT INTO botlog (reddit_id,toi_url,imgur_url) \
-                        VALUES (?,?,?)", (reddit_id,toi_url,imgur_url));
-        conn.commit()
-    except lite.IntegrityError:
-        print "Reddit id {} already exists".format(reddit_id)
-
-def check_record(reddit_id):
-    """check if given id has been processed previously"""
-
-    cursor.execute("SELECT reddit_id from botlog where reddit_id=?",
-                   (reddit_id,))
-    return cursor.fetchone()
-
-def format_keypoints(key_points):
-    if not len(key_points) == 4:
-        print key_points
-        return "FAILURE!!!!! Make sure it doesn't post"
-    return u">* {0}\n>* {1}\n>* {2}\n>* {3}\n".format(*[p[2].rstrip() for p in key_points])
-
-
 try:
     import configparser as cfg
 except ImportError:
@@ -52,9 +22,32 @@ USERNAME = conf.get('REDDIT','USERNAME')
 PASSWORD = conf.get('REDDIT','PASSWORD')
 USERAGENT = conf.get('GENERAL','USERAGENT')
 SUBREDDITS = ("worldnews",)
-r = praw.Reddit(user_agent=USERAGENT)
-r.login(USERNAME, PASSWORD)
 
+#db
+conn = lite.connect("bot.db")
+cursor = conn.cursor()
+cursor.execute('''CREATE TABLE IF NOT EXISTS botlog(id INTEGER PRIMARY KEY, 
+                  reddit_id TEXT unique, link TEXT)
+               ''')
+def add_record(reddit_id, link):
+    """Insert id and urls into db"""
+
+    try:
+        cursor.execute("INSERT INTO botlog (reddit_id,link) \
+                        VALUES (?,?)", (reddit_id,link));
+        conn.commit()
+    except lite.IntegrityError:
+        print "Reddit id {} already exists".format(reddit_id)
+
+def check_record(reddit_id):
+    """check if given id has been processed previously"""
+
+    cursor.execute("SELECT reddit_id from botlog where reddit_id=?",
+                   (reddit_id,))
+    return cursor.fetchone()
+
+
+#Summarizer...
 sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
 stops = stopwords.words('english')
 lemtz = WordNetLemmatizer()
@@ -104,6 +97,12 @@ def summarizer(url, num_sentences=4):
                          reverse=True)[:num_sentences]
     return hsumm, sorted(top_scorers, key=lambda tup: tup[1])
 
+def format_keypoints(key_points):
+    if not len(key_points) == 4:
+        print key_points
+        return "FAILURE!!!!! Make sure it doesn't post"
+    return u">* {0}\n>* {1}\n>* {2}\n>* {3}\n".format(*[p[2].rstrip() for p in key_points])
+
 COMMENT =\
 u"""
 **Summary**: {summary}\n
@@ -111,5 +110,40 @@ u"""
 {keypoints}\n --- 
 ^I'm ^a ^bot \
 ^| [^Message ^Creator](http://www.reddit.com/message/compose/?to=padmanabh) ^| \
-[^Code](https://github.com/lekhakpadmanabh/ToIBot)
+[^Code](https://github.com/lekhakpadmanabh/KeyPointsBot)
 """
+
+if __name__ == '__main__':
+
+    r = praw.Reddit(user_agent=USERAGENT)
+    r.login(USERNAME, PASSWORD)
+
+    for sub in SUBREDDITS:
+
+        subr = r.get_subreddit(sub)
+        posts = subr.get_new(limit=30)
+
+        for p in posts:
+
+            if check_record(p.id):
+                """skip if record has been processed"""
+                continue
+
+            try:
+                summ,_kpts = summarizer(p.url)
+                kpts = format_keypoints(_kpts)
+            except:
+                print "Something bad happened, ", p.title
+                continue
+
+            while True:
+                try:
+                    print p.title
+                    p.add_comment( COMMENT.format(**{'summary':summ, 
+                                                     'keypoints':kpts}) )
+                    add_record(p.id, p.url)
+                    break
+                except praw.errors.RateLimitExceeded:
+                    print "Rate limit exceeded, sleeping 8 mins"
+                    sleep(8*60)
+
