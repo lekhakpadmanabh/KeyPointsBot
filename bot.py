@@ -1,14 +1,19 @@
+####################
+## Author: Padmanabh
+## License: GPLv3
+####################
+
+from goose import Goose
 import networkx as nx
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.metrics.pairwise import pairwise_kernels
 import nltk
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import stopwords
-from goose import Goose
-from scipy import sparse
+import praw
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.metrics.pairwise import pairwise_kernels
 import sqlite3 as lite
 from time import sleep 
-import praw
+
 
 try:
     import configparser as cfg
