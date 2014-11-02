@@ -102,6 +102,7 @@ def summarizer(url, num_sentences=4):
                          reverse=True)[:num_sentences]
     return hsumm, sorted(top_scorers, key=lambda tup: tup[1])
 
+#formatting
 def format_keypoints(key_points):
     if not len(key_points) == 4:
         print key_points
@@ -137,8 +138,9 @@ if __name__ == '__main__':
             try:
                 summ,_kpts = summarizer(p.url)
                 kpts = format_keypoints(_kpts)
-            except:
+            except Exception as e:
                 print "Something bad happened, ", p.title
+                print e
                 continue
 
             while True:
