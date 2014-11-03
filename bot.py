@@ -108,7 +108,8 @@ def format_keypoints(key_points):
         print key_points
         #do something about it later
         return "FAILURE!!!!! Make sure it doesn't post"
-    return u">* {0}\n>* {1}\n>* {2}\n>* {3}\n".format(*[p[2].rstrip() for p in key_points])
+    return u">* {0}\n>* {1}\n>* {2}\n>* {3}\n"\
+            .format(*[p[2] \for p in key_points])
 
 COMMENT =\
 u"""
