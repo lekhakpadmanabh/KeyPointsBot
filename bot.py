@@ -106,7 +106,7 @@ def summarizer(url, num_sentences=4):
 def format_keypoints(key_points):
     if not len(key_points) == 4:
         print key_points
-        #do something about it later
+        #do something about this later
         return "FAILURE!!!!! Make sure it doesn't post"
     return u">* {0}\n>* {1}\n>* {2}\n>* {3}\n"\
             .format(*[p[2] \for p in key_points])
