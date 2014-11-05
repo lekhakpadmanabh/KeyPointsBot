@@ -3,6 +3,6 @@ KeyPointsBot
 
 [Link](http://www.reddit.com/user/Key_Points)
 
-Gets the key points from a news article. In beta right now.
+Gets the key points from a news article. 
 
-Took it for a test run this morning, some issues need to be fixed. Will get back to it in the afternoon.
+This repo handles posting to reddit, the summarization part has been moved to [this](https://github.com/lekhakpadmanabh/Summarizer) repository
