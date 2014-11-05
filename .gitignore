@@ -3,3 +3,5 @@
 *.db
 *.ipynb
 *.ini
+*.cfg
+notebooks/
