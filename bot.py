@@ -11,7 +11,7 @@ import botdb
 from time import sleep 
 
 
-logging.basicConfig(filename='keyptbot.log', level=logging.INFO)
+logging.basicConfig(filename='keyptbot.log', level=logging.ERROR)
 
 UNAME, PASS = mgmt.get_creds()
 USERAGENT = mgmt.get_settings()
@@ -36,17 +36,20 @@ if __name__ == '__main__':
     for sub in SUBREDDITS:
 
         subr = r.get_subreddit(sub)
-        posts = subr.get_new(limit=30)
+        posts = subr.get_new(limit=50)
 
         for p in posts:
 
             if botdb.check_record(p.id):
                 """skip if record has been processed"""
-                print "Done already!"
                 continue
 
             try:
                 summ, kpts = smrzr.summarize_url(p.url, fmt="md")
+
+                if not kpts:
+                    continue
+
                 if summ:
                     COMMENT = COMMENT_S
                     comm_dict = {'summary':summ, 'keypoints':kpts}
@@ -54,18 +57,29 @@ if __name__ == '__main__':
                     COMMENT = COMMENT_NS
                     comm_dict = {'keypoints':kpts}
 
+                while True:
+                    try:
+                        p.add_comment(COMMENT.format(**comm_dict))
+                        botdb.add_record(p.id, p.url)
+                        pr = p.title[:100] if len(p.title)>100 else p.title
+                        print pr
+                        break
+                    except praw.errors.RateLimitExceeded:
+                        print "Rate limit exceeded, sleeping 8 mins"
+                        sleep(8*60)
+
+            except smrzr.ArticleExtractionFail:
+                #to not pollute logs
+                #botdb.add_record(p.id, p.url)
+                logging.error("Extraction Failed, check fails.txt")
+                with open('fails.txt','a') as f:
+                    f.write(p.url+'\n')
+
             except Exception as e:
-                print "Something bad happened, check logs -- ", p.title
-                logging.error("Smrzr ({0}) {1}".format(p.id, e))
+                print "[ERROR] check logs -- ", p.title
+                logging.error("Smrzr ({0}) {1}".format(p.url, e))
+                #logging.exception("EXCEPT:")
                 continue
 
-            while True:
-                try:
-                    print p.title
-                    p.add_comment(COMMENT.format(**comm_dict))
-                    botdb.add_record(p.id, p.url)
-                    break
-                except praw.errors.RateLimitExceeded:
-                    print "Rate limit exceeded, sleeping 8 mins"
-                    sleep(8*60)
+
 
