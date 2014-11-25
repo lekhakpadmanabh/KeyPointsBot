@@ -18,7 +18,8 @@ u"""
 **Key Points**\n ---
 {keypoints}\n --- 
 ^I'm ^a ^bot \
-^| ^OP ^can ^reply ^with ^"samachardelete" ^to ^remove ^| [^Message ^Creator](http://www.reddit.com/message/compose/?to=padmanabh) \
+^| ^OP ^can ^reply ^with ^"samachardelete" ^| [^Message ^Creator](http://www.reddit.com/message/compose/?to=padmanabh) \
+^| [^Source](https://github.com/lekhakpadmanabh/KeyPointsBot)
 """
 comment_s = u"**Summary**: {summary}\n" + comment_ns
 
