@@ -3,83 +3,93 @@
 ## License: GPLv3
 ####################
 
-import keyptsummarizer as smrzr
+import smrzr
 import logging
 import management as mgmt
 import praw
 import botdb
 from time import sleep 
 
-
 logging.basicConfig(filename='keyptbot.log', level=logging.ERROR)
 
-UNAME, PASS = mgmt.get_creds()
-USERAGENT = mgmt.get_settings()
-SUBREDDITS = ("worldnews",)
-
-COMMENT_NS =\
+m = mgmt.ConfigManager("samachar.ini")
+comment_ns =\
 u"""
 **Key Points**\n ---
 {keypoints}\n --- 
 ^I'm ^a ^bot \
-^| [^Message ^Creator](http://www.reddit.com/message/compose/?to=padmanabh) ^| \
-[^Code](https://github.com/lekhakpadmanabh/KeyPointsBot)
+^| ^OP ^can ^reply ^with ^"samachardelete" ^to ^remove ^| [^Message ^Creator](http://www.reddit.com/message/compose/?to=padmanabh) \
 """
+comment_s = u"**Summary**: {summary}\n" + comment_ns
 
-COMMENT_S = u"**Summary**: {summary}\n" + COMMENT_NS
+from requests.exceptions import ConnectionError
+try:
+    r = praw.Reddit(user_agent=m.agent)
+    r.login(m.user, m.pwd)
+except ConnectionError:
+    raise SystemExit("Couldn't Connect, exiting...")
 
-if __name__ == '__main__':
+for sub in mgmt.get_subs():
 
-    r = praw.Reddit(user_agent=USERAGENT)
-    r.login(UNAME, PASS)
+    subr = r.get_subreddit(sub)
+    posts = subr.get_new(limit=40)
 
-    for sub in SUBREDDITS:
+    for p in posts:
 
-        subr = r.get_subreddit(sub)
-        posts = subr.get_new(limit=50)
+        if p.domain not in mgmt.get_domain_whitelist():
+            continue
 
-        for p in posts:
+        if str(p.subreddit) == 'india' and p.score <3:
+            continue
 
-            if botdb.check_record(p.id):
-                """skip if record has been processed"""
-                continue
+        if botdb.check_record(p.id):
+            """skip if record has been processed"""
+            continue
 
-            try:
-                summ, kpts = smrzr.summarize_url(p.url, fmt="md")
-
-                if not kpts:
-                    continue
-
-                if summ:
-                    COMMENT = COMMENT_S
-                    comm_dict = {'summary':summ, 'keypoints':kpts}
-                else:
-                    COMMENT = COMMENT_NS
-                    comm_dict = {'keypoints':kpts}
-
-                while True:
-                    try:
-                        p.add_comment(COMMENT.format(**comm_dict))
-                        botdb.add_record(p.id, p.url)
-                        pr = p.title[:100] if len(p.title)>100 else p.title
-                        print pr
-                        break
-                    except praw.errors.RateLimitExceeded:
-                        print "Rate limit exceeded, sleeping 8 mins"
-                        sleep(8*60)
-
-            except smrzr.ArticleExtractionFail:
-                #to not pollute logs
-                #botdb.add_record(p.id, p.url)
-                logging.error("Extraction Failed, check fails.txt")
-                with open('fails.txt','a') as f:
-                    f.write(p.url+'\n')
-
-            except Exception as e:
-                print "[ERROR] check logs -- ", p.title
-                logging.error("Smrzr ({0}) {1}".format(p.url, e))
-                #logging.exception("EXCEPT:")
-                continue
+        try:
+            summ, kpts = smrzr.summarize_url(p.url)
 
 
+
+            maxlen = max([len(pt) for pt in kpts])
+            minlen = min([len(pt) for pt in kpts])
+            if maxlen > 330:
+                raise ValueError("Keypoint too long")
+            if minlen < 30:
+                raise ValueError("Keypoint too short")
+
+
+
+            intrsc = len(set.intersection(set(summ.split(" ")),\
+                      set(kpts[0].split(" "))))
+            if intrsc >8:
+                kpts[0] = summ
+                summ = ''
+
+            kpts = smrzr.formatters.Formatter(kpts,'md').frmt()
+
+
+            if summ:
+                comment = comment_s
+                comm_dict = {'summary':summ, 'keypoints':kpts}
+            else:
+                comment = comment_ns
+                comm_dict = {'keypoints':kpts}
+
+
+
+            while True:
+                try:
+                    p.add_comment(comment.format(**comm_dict))
+                    botdb.add_record(p.id, p.url)
+                    pr = p.title[:100] if len(p.title)>100 else p.title
+                    print p.score, p.subreddit, pr
+                    break
+
+                except praw.errors.RateLimitExceeded:
+                    print "Rate limit exceeded, sleeping 8 mins"
+                    sleep(8*60)
+
+        except Exception as e:
+            logging.error("({0}) {1}".format(p.id, e))
 
