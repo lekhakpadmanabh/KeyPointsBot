@@ -1,6 +1,6 @@
 ####################
 ## Author: Padmanabh
-## License: GPLv3
+## License: Apache
 ####################
 
 import smrzr
